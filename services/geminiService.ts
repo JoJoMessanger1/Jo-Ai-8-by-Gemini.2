@@ -1,10 +1,11 @@
 import { GoogleGenAI, Content, Part } from "@google/genai";
 import { Message, Role } from "../types";
 
-const apiKey = process.env.API_KEY;
+// Safe access to process.env.API_KEY
+const apiKey = typeof process !== 'undefined' && process.env ? process.env.API_KEY : '';
 
-// Initialize the client
-const ai = new GoogleGenAI({ apiKey: apiKey });
+// Initialize the client only if we have a key, otherwise we handle error later
+const ai = new GoogleGenAI({ apiKey: apiKey || 'dummy-key-to-prevent-crash' });
 
 /**
  * Maps our internal Message type to the SDK's Content type.
@@ -18,13 +19,16 @@ const mapMessagesToHistory = (messages: Message[]): Content[] => {
 
 /**
  * Sends a message to the Gemini model and streams the response.
- * We create a new chat session each time to ensure the latest system instruction (with the correct name) is used.
  */
 export const streamChatResponse = async function* (
   currentMessage: string,
   history: Message[],
   aiName: string
 ) {
+  if (!apiKey) {
+    throw new Error("API key is missing");
+  }
+
   const modelId = 'gemini-2.5-flash';
   
   // Construct the system instruction based on the dynamic name
@@ -45,7 +49,7 @@ export const streamChatResponse = async function* (
       history: mapMessagesToHistory(history),
       config: {
         systemInstruction: systemInstruction,
-        temperature: 0.7, // Slightly creative/friendly
+        temperature: 0.7, 
       },
     });
 

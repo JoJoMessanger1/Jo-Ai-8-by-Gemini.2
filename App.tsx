@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Settings, Sparkles, Loader2, Eraser } from 'lucide-react';
+import { Send, Settings, Sparkles, Loader2, Eraser, AlertCircle } from 'lucide-react';
 import { Message, Role } from './types';
 import { streamChatResponse } from './services/geminiService';
 import { ChatMessage } from './components/ChatMessage';
@@ -22,6 +22,7 @@ const App: React.FC = () => {
   ]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -51,6 +52,7 @@ const App: React.FC = () => {
 
     const userText = input.trim();
     setInput('');
+    setError(null);
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
 
     const newMessage: Message = {
@@ -87,14 +89,17 @@ const App: React.FC = () => {
         );
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to send message:', error);
-      setMessages((prev) => [...prev, {
-        id: Date.now().toString(),
-        role: Role.MODEL,
-        text: 'Entschuldigung, ich habe gerade Verbindungsprobleme. Bitte versuche es gleich noch einmal.',
-        timestamp: Date.now()
-      }]);
+      // Remove the empty placeholder if it failed immediately
+      setMessages((prev) => prev.filter(msg => msg.text !== ''));
+      
+      // Show a user-friendly error
+      if (error.message?.includes('API key')) {
+        setError('Der API-Schlüssel fehlt oder ist ungültig.');
+      } else {
+        setError('Verbindungsproblem. Bitte versuche es erneut.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -114,7 +119,7 @@ const App: React.FC = () => {
       {
         id: Date.now().toString(),
         role: Role.MODEL,
-        text: `Alles klar! Du kannst mich ab jetzt "${newName}" nennen.`,
+        text: `Alles klar! Ich heiße jetzt "${newName}".`,
         timestamp: Date.now()
       }
     ]);
@@ -128,6 +133,7 @@ const App: React.FC = () => {
         text: `Hallo! Ich bin ${aiName}. Wie kann ich dir heute helfen?`,
         timestamp: Date.now()
       }]);
+      setError(null);
     }
   }
 
@@ -195,6 +201,13 @@ const App: React.FC = () => {
             </div>
           )}
           
+          {error && (
+            <div className="flex items-center gap-2 p-3 bg-red-50 text-red-600 rounded-xl border border-red-100 mx-auto max-w-md animate-in fade-in slide-in-from-bottom-2">
+              <AlertCircle size={20} />
+              <p className="text-sm font-medium">{error}</p>
+            </div>
+          )}
+          
           <div ref={messagesEndRef} className="h-4" />
         </div>
       </main>
@@ -209,7 +222,7 @@ const App: React.FC = () => {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={`Schreibe eine Nachricht an ${aiName}...`}
-              className="w-full bg-transparent border-none focus:ring-0 resize-none max-h-32 min-h-[44px] py-3 px-3 text-gray-800 placeholder-gray-400 leading-relaxed"
+              className="w-full bg-transparent border-none focus:ring-0 resize-none max-h-32 min-h-[44px] py-3 px-3 text-gray-800 placeholder-gray-400 leading-relaxed outline-none"
               rows={1}
             />
             <button
